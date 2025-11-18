@@ -1,0 +1,9 @@
+---
+model: gpt-5-nano
+temperature: 1.0
+max_completion_tokens: 500
+executions: 1
+has_system_prompt: no
+---
+
+感情: ネガティブ

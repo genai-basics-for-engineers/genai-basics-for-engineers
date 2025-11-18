@@ -1,0 +1,11 @@
+[project]
+name = "chapter6"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "langfuse==3.4.0",
+    "openai==1.101.0",
+    "python-dotenv==1.1.1",
+]

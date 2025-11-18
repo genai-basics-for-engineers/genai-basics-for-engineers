@@ -1,0 +1,10 @@
+---
+temperature: 0.7
+model: gpt-5-nano
+executions: 5
+description: Self-Consistency デモ（多数決による精度向上）
+---
+
+レストランの会計で、料理代が 8,500 円でした。
+サービス料 10%と消費税 10%が加算されます。
+最終的な支払額はいくらですか？段階的に計算してください。

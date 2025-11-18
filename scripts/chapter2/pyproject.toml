@@ -1,0 +1,17 @@
+[project]
+name = "genai-book-chapter2"
+version = "1.0.0"
+description = "第2章 Prompt Engineering のサンプルコード"
+requires-python = ">=3.10"
+dependencies = [
+    "openai==2.7.1",
+    "tiktoken==0.12.0",
+    "python-dotenv==1.2.1",
+]
+
+[tool.uv]
+dev-dependencies = [
+    "ruff>=0.5.0",
+    "black>=24.4.2",
+    "mypy>=1.10.0",
+]

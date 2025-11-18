@@ -1,0 +1,20 @@
+[project]
+name = "genai-book-chapter7"
+version = "1.0.0"
+description = "第7章 AI Agent 開発編のサンプルコード"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "langchain>=1.0.5",
+    "langchain-core>=1.0.4",
+    "langchain-openai>=1.0.2",
+    "langchain-community>=0.4.1",
+    "langchain-text-splitters>=1.0.0",
+    "langchain-tavily>=0.2.13",
+    "langgraph>=1.0.2",
+    "tavily-python>=0.7.12",
+    "python-dotenv>=1.2.1",
+    "beautifulsoup4>=4.14.2",
+    "requests>=2.32.5",
+    "chromadb>=1.3.4",
+    "langchain-mcp-adapters>=0.1.12",
+]

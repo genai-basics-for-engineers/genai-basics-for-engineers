@@ -1,0 +1,12 @@
+---
+temperature: 1.0
+model: gpt-5-nano
+description: Least-to-Most デモ（直接回答版）
+---
+次の問題を解いてください。
+
+問題：
+正方形ABCDの一辺の長さは12cmです。
+点Pは辺AB上にあり、APの長さはABの1/3です。
+点Qは辺BC上にあり、BQの長さはBCの1/4です。
+三角形PBQの面積を求めてください。

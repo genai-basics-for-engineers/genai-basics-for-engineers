@@ -1,0 +1,9 @@
+---
+temperature: 1.0
+model: gpt-5-nano
+executions: 3
+description: Few-Shot なしの感情分析
+---
+
+製品レビューの感情を分析してください。
+「この製品は期待はずれでした。すぐ故障してしまい、サポートの対応も悪かったです。」

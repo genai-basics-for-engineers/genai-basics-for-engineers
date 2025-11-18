@@ -1,0 +1,8 @@
+---
+temperature: 1.0
+model: gpt-5-nano
+executions: 3
+description: 曖昧な指示の例
+---
+専門的に答えて。長すぎないように。
+質問：データベースのインデックスとは何ですか？

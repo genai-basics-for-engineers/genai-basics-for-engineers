@@ -1,0 +1,7 @@
+---
+temperature: 0.2
+model: gpt-4.1-nano
+executions: 3
+description: Temperature パラメータのデモ（コード生成）
+---
+Pythonで1から10の合計を計算

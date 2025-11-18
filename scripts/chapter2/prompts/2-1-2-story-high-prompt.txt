@@ -1,0 +1,8 @@
+---
+temperature: 0.9
+model: gpt-4.1-nano
+executions: 3
+description: Temperature 効果を示すための物語生成（高温度）
+---
+次の文章の続きを50文字程度で創造的に書いてください：
+「深夜の図書館で、古い本を開くと...」

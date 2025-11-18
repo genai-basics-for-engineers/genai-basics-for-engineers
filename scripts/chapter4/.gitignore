@@ -1,0 +1,41 @@
+# Python環境
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+
+# 環境変数（APIキー含む）
+.env
+.env.local
+
+# テスト・カバレッジ
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDE設定
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS生成ファイル
+.DS_Store
+Thumbs.db
+
+# 一時出力（再生成不要な場合）
+# outputs/  # コミット対象のためコメントアウト
+*.log
+*.tmp
+
+# Jupyter Notebook
+.ipynb_checkpoints

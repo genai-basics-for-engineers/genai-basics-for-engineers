@@ -1,0 +1,29 @@
+---
+temperature: 1.0
+model: gpt-5-nano
+description: System Promptなしの技術文書レビュー
+---
+この技術文書をレビューし、改善提案を提供してください。
+
+文書：
+# API統合ガイド
+
+## 概要
+このガイドでは、REST APIを使用してサービスと統合する方法を説明します。
+
+## インストール
+```bash
+npm install api-client
+```
+
+## 使用方法
+```javascript
+const client = new APIClient('your-api-key-here');
+const result = client.getData();
+console.log(result);
+```
+
+## API仕様
+- エンドポイント: https://api.example.com/v1/data
+- メソッド: GET
+- 認証: JWTトークン

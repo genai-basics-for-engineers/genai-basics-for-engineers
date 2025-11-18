@@ -1,0 +1,7 @@
+BM25アルゴリズムの実装詳細
+
+BM25はTF-IDFの発展形として開発された確率的情報検索モデルです。Okapi BM25とも呼ばれ、k1パラメータとbパラメータによって文書長の正規化とterm frequencyの飽和を制御します。
+
+k1パラメータ（通常1.2-2.0）はterm frequencyの飽和カーブを制御し、bパラメータ（通常0.75）は文書長による正規化の強さを調整します。ElasticsearchやSolrなどの検索エンジンで広く採用されており、Apache LuceneのBM25Similarityクラスで実装されています。
+
+BM25のスコア計算式では、IDF（Inverse Document Frequency）にTF（Term Frequency）の正規化版を乗算します。文書コレクション全体の統計情報を活用することで、レアなterm程高いスコアを付与し、検索精度を向上させます。

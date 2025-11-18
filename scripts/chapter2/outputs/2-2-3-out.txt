@@ -1,0 +1,541 @@
+---
+model: gpt-5-nano
+executions: 3
+has_system_prompt: yes
+---
+
+[実行 1]
+以下の観点で技術文書を厳密にレビューし、良点と改善点を整理しました。改善点には具体的な修正案とコード例を添え、優先度を付けています。
+
+1) 良い点
+- シンプルで読みやすい構成になっている点（概要・インストール・使用方法・API仕様が分かれている）。
+- npm パッケージ名を明示しており、導入手順がすぐに試せる。
+- REST API のエンドポイントと HTTP メソッドが明記されている。
+- 「認証: JWTトークン」と記載されており、認証の前提がある程度示されている。
+
+2) 改善点と具体的修正案
+以下は優先度の高いものから順に列挙します。実装影響が大きい項目には修正案をセットで提示します。
+
+高優先度 (Critical/必須)
+- 1) 認証モデルの不整合を解消する
+  - 現状の問題点
+    - コード例では「your-api-key-here」となっており、JWTトークン認証と矛盾する表現になっています。
+    - 「JWTトークン」という認証方式を前提とするなら、トークンの取得方法や更新方法が欠如しています。
+  - 提案内容
+    - 認証は「Bearer トークン（JWT）」を使う前提で統一する。 token の取得方法・有効期限・更新（リフレッシュ）方針を明示する。
+    - token の取得先（例: /auth/token などの認証エンドポイント）、クライアントID/シークレットの管理、環境変数での安全な保管方法を追記する。
+    - token をコードにハードコードしない運用方針を明確化する。
+  - 実装案（コード例）
+    - token の取得と利用を分離するパターンの例（実装は APIClient 側の設計に依存しますが、以下は一般的な実装イメージ）。
+    - 例1: APIClient が getAuthToken() コールバックをサポートする場合
+      ```
+      // config.ts
+      export const apiClient = new APIClient({
+        baseUrl: 'https://api.example.com/v1',
+        getAuthToken: async () => {
+          // 例: client_credentials フローでトークンを取得
+          const res = await fetch('https://auth.example.com/oauth/token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: new URLSearchParams({
+              grant_type: 'client_credentials',
+              client_id: process.env.AUTH_CLIENT_ID,
+              client_secret: process.env.AUTH_CLIENT_SECRET,
+              scope: 'data.read'
+            })
+          });
+          const json = await res.json();
+          return json.access_token;
+        }
+      });
+      ```
+      使用例:
+      ```
+      const data = await apiClient.getData();
+      ```
+    - 例2: token を直接渡す場合（推奨される適切な方法をライブラリの設計に合わせて採用）
+      ```
+      // 環境変数から取得して初期化
+      const token = process.env.API_JWT_TOKEN;
+      const client = new APIClient({
+        baseUrl: 'https://api.example.com/v1',
+        token
+      });
+
+      const result = await client.getData();
+      ```
+  - 追加の具体案
+    - token の有効期限を検知し、自動更新を試みるオプションを提供する。例: autoRefreshToken: true
+    - 失効時の挙動（再認証フローへの誘導、エラーハンドリング）を明記する。
+- 2) セキュリティと運用情報の充実
+  - 現状の問題点
+    - トークンの取り扱い、環境変数の推奨、ログ出力時の機密情報の扱いが記載なし。
+  - 提案内容
+    - 秘密情報の保護方針を追加。トークンをログに出力しない、エラーログにも token を含めない、環境変数を推奨。
+    - token のローテーション・失効時対応についての方針を追記。
+    - HTTP ヘッダやリクエスト/レスポンスの機密情報の扱いを明記。
+  - 例: セキュアな実装ガイドの追記
+    - ログ例の注意喚起
+      - "Authorization: Bearer <token>" はログ出力しない
+    - 環境変数の使い方
+      ```
+      // .env
+      API_JWT_TOKEN=xxxx.yyyy.zzzz
+      AUTH_CLIENT_ID=...
+      AUTH_CLIENT_SECRET=...
+      ```
+- 3) 完全性の不足（リクエスト/レスポンス仕様の明確化）
+  - 現状の問題点
+    - レスポンス形式、エラーレスポンスの構造、成功時のデータスキーマが未定義。
+    - ヘッダ（Accept, Content-Type など）、期待されるレスポンスの Content-Type が記載なし。
+  - 提案内容
+    - レスポンスのサンプルとスキーマを追加。例: 成功時の shape、データの例、メタ情報、ページネーション情報の有無。
+    - エラーハンドリングのフォーマットを統一。HTTP ステータスコードと、API が返すエラーオブジェクトの構造を明示する。
+    - サポートするクエリパラメータ（例: limit, offset, filter, sort）の仕様を追記。
+  - 例: レスポンスとエラーのサンプル
+    ```
+    // 成功例
+    {
+      "data": [
+        { "id": 1, "name": "Item A" },
+        { "id": 2, "name": "Item B" }
+      ],
+      "meta": {
+        "total": 2,
+        "limit": 100,
+        "offset": 0
+      }
+    }
+
+    // エラー例
+    {
+      "error": {
+        "code": "UNAUTHORIZED",
+        "message": "JWT token is missing or invalid",
+        "details": { "field": "Authorization" }
+      }
+    }
+    ```
+- 4) 使用例の現実性と再現性の向上
+  - 現状のコード例は「your-api-key-here」だけで JWT 認証と矛盾する。実務的には token の取得と付与を明記したほうが良い。
+  - 提案内容
+    - 実際の使用例を「Bearer トークン」を前提に統一する。非同期処理（Promise/async-await）でのエラー処理を含める。
+    - 複数の環境（開発/ステージング/本番）での baseUrl の使い分け方を追記。
+  - 例: 環境別設定とエラーハンドリングを含むサンプル
+    ```
+    const env = process.env.NODE_ENV || 'development';
+    const baseUrlMap = {
+      development: 'https://api.dev.example.com/v1',
+      staging: 'https://api.staging.example.com/v1',
+      production: 'https://api.example.com/v1'
+    };
+
+    const client = new APIClient({
+      baseUrl: baseUrlMap[env],
+      getAuthToken: async () => {
+        // トークン取得ロジック
+      }
+    });
+
+    try {
+      const result = await client.getData({ limit: 50, offset: 0 });
+      console.log(result);
+    } catch (err) {
+      // エラーハンドリング
+      console.error('API request failed', err);
+    }
+    ```
+
+中優先度 (Helpful/推奨)
+- 5) API仕様の拡張
+  - パラメータ仕様（クエリパラメータ、フィルタ、ソート、ページネーション）の詳細を追記。
+  - レスポンスのデータ型・スキーマの型定義例（TypeScript のインターフェイス等）を追加。
+- 6) エラーハンドリングの統一
+  - 具体的なエラーレスポンス形式、例外クラス/エラーオブジェクトの仕様を追記。
+- 7) ドキュメントの整形
+  - セクションごとに見出しを整え、コードブロックには言語と目的を明記する。
+  - 用語の統一（「APIキー」 vs 「JWTトークン」など、認証の呼称を統一）。
+- 8) テスト/検証ガイド
+  - 基本的なユニットテスト・統合テストの書き方、モックの使い方、CI でのセキュリティ検証を追記。
+
+改善後の文書ドラフト案（要約）
+- 概要
+  - REST API との統合ガイド。JWT Bearer トークン認証を前提とし、トークンの取得/更新、エラーハンドリング、環境別設定を含む。
+- インストール
+  - npm install api-client
+- 認証とセキュリティ
+  - JWT トークンの取得方法（例: client_credentials フロー）とトークンの有効期限、更新方針を詳述。
+  - トークンの保存場所は環境変数を推奨。ログ出力時はトークンを含めない。
+- 初期設定
+  - baseUrl、認証トークン取得関数（getAuthToken）または token の渡し方を明示。
+  - 環境別設定（development/staging/production）をサポートする例を追加。
+- 使用方法
+  - 非同期パターンでのデータ取得例を明記。
+  - 例:
+    ```
+    const client = new APIClient({
+      baseUrl: 'https://api.example.com/v1',
+      getAuthToken: async () => { /* token 取得 */ }
+      // または token: process.env.API_JWT_TOKEN
+    });
+
+    try {
+      const result = await client.getData({ limit: 50, offset: 0 });
+      console.log(result);
+    } catch (err) {
+      // エラーハンドリング
+    }
+    ```
+- API仕様（拡張）
+  - エンドポイント、メソッド、必須/任意のクエリパラメータ、ヘッダ要件、レスポンスデータ型、エラーフォーマットのサンプルを追加。
+- エラー処理
+  - HTTP ステータスコードと API 独自エラーコードの対応表、エラーメッセージの例を追加。
+- 安全な運用
+  - 秘密情報の保護、トークンのローテーション、監査ログの注意点、依存ライブラリの脆弱性管理の指針を追加。
+- テストと検証
+  - 基本的なユニット/統合テストの例、モック・スタブの使い方、CI でのセキュリティチェック。
+- 付録
+  - curl でのサンプル、認証トークン取得の curl 例、主要なレスポンス例を掲載。
+
+結論
+- 現状の文書は入門編としての導線はあるものの、認証の一貫性、セキュリティ、エラーハンドリング、レスポンス仕様、環境別設定といった実運用上必須の情報が不足しています。特に「JWTトークン」と「your-api-key-here」の混在は混乱を招くため、統一した認証モデルを中央に据える修正が最優先です。
+- 高優先度の修正を適用することで、読者が実務で迷うことなく実装・運用できる信頼性の高いガイドになります。
+
+必要であれば、上記の修正案をもとに具体的な修正案ドラフト（日本語の改訂版本文と英文版の併記、コードサンプル付き）を作成します。どの想定認証フローを採用するか（例: client_credentials、password、あるいは別の OAuth2 フロー）を決めていただければ、それに合わせて全文を再構成します。
+
+=== 実行ごとの出力 ===
+
+[実行 2]
+以下は技術文書の厳密なレビューと具体的な改善提案です。良い点と改善点を分けて、優先度付きで修正案を提示します。
+
+1) 良い点
+- 構成がシンプルで全体像が掴みやすい: 概要・インストール・使用方法・API仕様という基本的なセクション構成。
+- 実装例がある: 簡易的なコード例が示されており、初学者でも導入のイメージを掴みやすい。
+
+2) 改善点と具体的修正案
+高 priority（最優先）: セキュリティ・正確性・完全性を大きく改善
+- 問題点1: 使用例が非同期処理を前提としていない
+  - 現状の説明: const result = client.getData(); console.log(result);
+  - なぜ問題か: REST API呼び出しは通常非同期。結果はPromiseまたはコールバック経由で返る想定が自然。実行時に未解決の可能性がある。
+  - 修正案:
+    - 使用例を非同期対応に変更する。例：
+      ```javascript
+      // 推奨: async/await を用いた非同期処理
+      (async () => {
+        const client = new APIClient(process.env.API_KEY);
+        try {
+          const result = await client.getData();
+          console.log(result);
+        } catch (err) {
+          console.error('データ取得に失敗しました:', err);
+        }
+      })();
+      ```
+    - もしくはプロミスチェーンでの実装を併記。
+  - 優先度: 高
+
+- 問題点2: 認証情報の扱いがハードコードされている可能性
+  - 現状の説明: APIキーを直書きするようなコード例がある可能性。
+  - 修正案:
+    - APIキーは環境変数で取得する形式を推奨。例：
+      ```javascript
+      const apiKey = process.env.API_KEY;
+      const client = new APIClient({ baseURL: 'https://api.example.com/v1', headers: { Authorization: `Bearer ${apiKey}` } });
+      ```
+    - ドキュメントに「環境変数の設定方法」「秘密情報の取り扱い方」を追加。
+  - 優先度: 高
+
+- 問題点3: API仕様が認証とレスポンス形式を十分に定義していない
+  - 現状の説明: エンドポイント、メソッド、認証の3点のみ。
+  - 修正案:
+    - ヘッダ要件の明示（例: Authorization: Bearer <token>、Accept: application/json、Content-Type: application/json）。
+    - サンプルリクエストとサンプルレスポンスの追加。
+    - 代表的なステータスコードとエラーハンドリング方針を追記（200/401/403/404/429/5xx 等と、エラーレスポンスの形式）。
+    - 追加例:
+      - サンプルリクエスト:
+        GET /v1/data HTTP/1.1
+        Host: api.example.com
+        Authorization: Bearer <token>
+        Accept: application/json
+      - サンプルレスポンス（200）:
+        {
+          "data": [...],
+          "count": 123,
+          "page": 1,
+          "pageSize": 50
+        }
+      - サンプルエラー（401）:
+        {
+          "error": "Unauthorized",
+          "message": "Invalid or expired token."
+        }
+    - 優先度: 高
+  - 理由: 実運用での実装時に仕様漏れが発生しやすく、セキュリティ・信頼性に直結。
+
+- 問題点4: セキュリティに関する実装指針が不足
+  - 現状の説明: JWTトークンと認証の記述のみ。トークンの取り扱い方、ログ出力時の配慮、リフレッシュ・失効対応などが記載なし。
+  - 修正案:
+    - トークンをロギングに含めない、エラーレスポンスにもトークンを出力しない。
+    - トークンの有効期限・リフレッシュ戦略の方針を追記。
+    - TLS/HTTPSの必須、CSP/CSRFの考慮（ブラウザ環境向けのライブラリ利用時）を明記。
+  - 優先度: 高
+
+中 priority（改善を推奨）: 実用性と信頼性を高める
+- 問題点5: エラーハンドリングと再試行・タイムアウトの方針が不足
+  - 現状の説明: エラーハンドリングに触れていない。
+  - 修正案:
+    - タイムアウト設定の追加方法、リトライポリシー、指数バックオフのデフォルト案を追記。
+    - 例:
+      - デフォルトタイムアウト10秒、429時はリトライ回数を制限、バックオフ付きなど。
+  - 優先度: 中
+
+- 問題点6: 完全性不足（追加的なAPIパラメータ、ページネーション、フィルタリングの説明不足）
+  - 現状の説明: データ取得エンドポイントが1つのみ。
+  - 修正案:
+    - クエリパラメータの例（?page=1&limit=50&filter=...）や、ページネーションの仕様、データ構造の説明を追加。
+  - 優先度: 中
+
+低 priority（任意で追加推奨）
+- ドキュメントの整合性とメンテナンス性
+  - APIのバージョン、ライセンス、依存関係のバージョン固定、サポートされるNode.js/ブラウザ環境の明記。
+  - テスト計画（ユニット/統合テストのガイドライン）、サンプルのCI設定例。
+
+3) 実用的な改善案サンプル（修正後のコード例と仕様の一部）
+- 戦略: 非同期処理、環境変数での認証情報、基本的なエラーハンドリング、セキュリティ配慮を盛り込む。
+
+改善コード例（使用方法の一例）:
+```javascript
+// 使用例: async/await、環境変数、ヘッダ設定、エラーハンドリング
+import APIClient from 'api-client';
+
+const apiKey = process.env.API_KEY;
+const client = new APIClient({
+  baseURL: 'https://api.example.com/v1',
+  headers: {
+    Authorization: `Bearer ${apiKey}`,
+    Accept: 'application/json'
+  },
+  timeout: 10000 // 10秒
+});
+
+async function fetchData() {
+  try {
+    const data = await client.getData(); // 引数が必要な場合は適宜追加
+    console.log(data);
+  } catch (err) {
+    if (err.response) {
+      console.error(`API error ${err.response.status}:`, err.response.data);
+    } else if (err.code === 'ECONNABORTED') {
+      console.error('Request timed out');
+    } else {
+      console.error('Unexpected error', err);
+    }
+  }
+}
+
+fetchData();
+```
+
+API仕様の改善例（追加項目のサンプル）
+- エンドポイント
+  - GET https://api.example.com/v1/data
+- ヘッダ
+  - Authorization: Bearer <JWT or API key>
+  - Accept: application/json
+  - Content-Type: application/json (必要時)
+- サンプルレスポンス（200）
+  - {
+      "data": [...],
+      "count": 123,
+      "page": 1,
+      "pageSize": 50
+    }
+- エラーレスポンスの例
+  - 401 Unauthorized
+    { "error": "Unauthorized", "message": "Invalid or expired token." }
+  - 429 Too Many Requests
+    { "error": "TooManyRequests", "message": "Rate limit exceeded." }
+
+4) 追加の推奨事項
+- ドキュメント全体の改善スケジュール
+  - 第1フェーズ（優先度高）：非同期処理の明示、認証情報の安全な扱い、基本的なエラーハンドリングを追加。
+  - 第2フェーズ（中）：ヘッダ仕様・サンプルレスポンス・エラーレスポンスの統一、リトライ・タイムアウトポリシーを追加。
+  - 第3フェーズ（低）：ページネーション・フィルタリングの詳細、テスト指針、セキュリティベストプラクティスの詳細。
+- セキュリティガイドの追加
+  - 秘密情報の取り扱い（環境変数、秘密管理ツールの利用）。
+  - トークンのロギング禁止、監査ログの取り方、失効対応の方針。
+
+要約
+- 実装面での正確性と実用性を大きく向上させるには、非同期処理の前提を明示し、認証情報の安全な取り扱い、レスポンスとエラーレスポンスの具体例、タイムアウト/リトライのポリシーを追加することが最重要です。
+- API仕様を詳細化し、ヘッダ要件・サンプルリクエスト/レスポンス、エラーコードの定義を追加してください。
+- セキュリティ観点を強化する記述（環境変数の使用、ログ出力時の注意、トークン管理）を必須項目として追加してください。
+
+この改善案を反映した「更新版ドラフト」を作成することで、読者が実際に安全かつ安定的に統合を進められるようになります。必要であれば、あなたのプロジェクト環境（ライブラリの実際のAPI、想定するデータモデル）に合わせた具体的な修正案の、完全版ドラフトも作成します。
+
+=== 実行ごとの出力 ===
+
+[実行 3]
+以下の観点で技術文書を厳密にレビューし、良い点と改善点を分けて指摘します。具体的な修正案と優先度を併記します。
+
+良い点
+- インストール手順が明示されている点（npm install api-client）。
+- APIエンドポイントとHTTPメソッドが明示されている点（GET https://api.example.com/v1/data）。
+- 認証がJWTトークンであることを示している点（セキュリティ上の前提を示唆している）。
+- 簡潔な使用例を提示しており、入門には分かりやすい入り口になっている点。
+
+改善点と具体的修正案 (優先度付き)
+
+高優先度
+1) 一貫性と正確性の欠如
+- 現状の矛盾: 「const client = new APIClient('your-api-key-here');」とある一方で、認証はJWTトークンと説明。実際にはJWTをどのように渡すのか不明。
+- 修正案:
+  - 認証情報の受け渡し方法を明確化する。例:
+    - コンストラクタでオプションとして baseUrl、token、timeout を受け取る形式を推奨:
+      const client = new APIClient({ baseUrl: 'https://api.example.com/v1', token: process.env.API_TOKEN });
+    - あるいはセットメソッドで token を設定する形式を併記:
+      const client = new APIClient({ baseUrl: 'https://api.example.com/v1' });
+      client.setToken(process.env.API_TOKEN);
+  - コード例を async/await に統一し、実際の非同期挙動を反映:
+    async function main() {
+      const data = await client.getData();
+      console.log(data);
+    }
+
+2) 非同期処理とエラーハンドリングの欠如
+- 現状: getData() の呼び出しが同期的に見える表現。
+- 修正案:
+  - getData() は Promise を返すことを前提に、async/await で実装・示唆する。
+  - 例外処理とエラーレスポンスの取り扱いを明示する:
+    try {
+      const data = await client.getData();
+      console.log(data);
+    } catch (err) {
+      console.error('API request failed:', err.message);
+      // err.code や err.status などの構造を想定
+    }
+
+3) API仕様の不足
+- 現状: エンドポイントとメソッド、認証のみ。
+- 修正案:
+  - リクエストヘッダ、クエリパラメータ、レスポンスのスキーマを明記。
+  - 標準的なエラーハンドリングを例示（HTTP 401/403/429/5xx など）。
+  - レスポンス例（200 OK のサンプル・JSON構造、データ型、必須/任意フィールド）。
+  - ページ네ーション、タイムアウト、リトライポリシー、レートリミットの取り扱いを記載。
+  - URLの「v1」を明確にベースURLとして扱う想定を統一。
+
+4) セキュリティの実装ガイダンス不足
+- 現状: JWTトークンの言及のみ。
+- 修正案:
+  - トークンは環境変数やセcretsマネージャーから注入する、ソースコードへハードコーディングしない方針を推奨。
+  - Tokenの有効期限・ローテーションの運用方針を明記。
+  - トークンをログに出力しない、tokenを含むエラーメッセージを露出しない、などのセキュリティ実践を具体化。
+  - HTTPS の必須利用を明記（TLS 1.2+/TLS 1.3推奨）。
+
+中優先度
+5) 実用性と再現性の不足
+- 現状: 実装で想定される環境設定や前提条件が不足。
+- 修正案:
+  - Node.js の推奨バージョン、サポートOS、npm/yarn の推奨バージョンを追記。
+  - dotenv 等を使った環境変数の設定例を追加（例: .env ファイルの例）。
+  - 実践的なサンプルコードを CommonJS/ESM の両方で掲載。
+  - ローカル開発と本番環境の設定差分を説明。
+
+6) 完全性の不足
+- 現状: 「API仕様」が1エンドポイントのみ。
+- 修正案:
+  - 将来拡張を想定して、OpenAPI/Swagger 風の仕様の例を追加（paths、components、schemas、securitySchemes など）。
+  - バージョニング戦略、互換性ポリシー、廃止方針の記載。
+
+7) ドキュメント構成と明確性
+- 現状: セクションが簡素で、初心者にとって導線が不足。
+- 修正案:
+  - 目次を設け、前提条件、セキュリティ、エラーハンドリング、テスト、FAQ などを整理。
+  - 用語の統一（JWTトークン/ APIキー/ Bearer トークンの意味を一貫して明記）。
+  - 例外的なケースの扱い（トークン期限切れ、権限不足、ネットワークエラー）をサンプルとともに追記。
+
+提案する改訂版のサンプル構成（要約）
+
+- タイトル: API統合ガイド
+- 前提条件
+  - Node.js バージョン、環境変数の扱い、HTTPS の要件
+- インストール
+  - npm install api-client
+- 概要
+  - APIClient の役割と想定動作
+- 使用方法（推奨パターン）
+  - baseUrl と token を渡す形、環境変数の活用、async/await の使用
+  - 例:
+    // CommonJS
+    const APIClient = require('api-client');
+    const client = new APIClient({
+      baseUrl: 'https://api.example.com/v1',
+      token: process.env.API_TOKEN,
+      timeout: 10000
+    });
+    (async () => {
+      try {
+        const data = await client.getData();
+        console.log(data);
+      } catch (err) {
+        console.error('API request failed:', err.message);
+      }
+    })();
+- API仕様（例：OpenAPI風）
+  - エンドポイント一覧、各エンドポイントのリクエスト/レスポンス、認証方法、ステータスコード、サンプル
+- セキュリティ
+  - トークンの取り扱い、ローテーション、秘密情報の保護、TLSの必須化
+- エラーハンドリング
+  - エラー構造、例外の種類、リトライポリシー
+- テストとデバッグ
+  - モック/スタブの推奨方法、テスト環境での API_TOKENの扱い
+- 付録
+  - 追加ライブラリ、FAQ、よくある落とし穴
+
+具体的な実装イメージ（改善点反映例のコード断片）
+
+- APIClient の使い方の統一例（高優先の修正案に沿う形）
+  - CommonJS:
+    const APIClient = require('api-client');
+    const client = new APIClient({
+      baseUrl: 'https://api.example.com/v1',
+      token: process.env.API_TOKEN,
+      timeout: 10000
+    });
+
+    (async () => {
+      try {
+        const data = await client.getData();
+        console.log(data);
+      } catch (err) {
+        // 可能なエラーレスポンスの例に合わせて処理
+        if (err.status) {
+          console.error(`HTTP ${err.status}: ${err.message}`);
+        } else {
+          console.error('Network error:', err.message);
+        }
+      }
+    })();
+
+- 期待されるレスポンス例（API仕様の追加サンプル）
+  - 200 OK
+    {
+      "data": [
+        { "id": "abc", "value": 123 },
+        { "id": "def", "value": 456 }
+      ],
+      "page": 1,
+      "pageSize": 20,
+      "total": 2
+    }
+
+- エラーレスポンス例
+  - 401 Unauthorized
+    { "error": { "code": "AUTH001", "message": "Invalid or expired token." } }
+
+優先度の要約
+- 高: 一貫性のある認証の渡し方の明示、非同期/エラーハンドリングの実装、現仕様の誤解を招く点の修正、セキュリティの実践ガイドの追加。
+- 中: API仕様の拡充（リクエスト/レスポンスのスキーマ、エラーハンドリングの詳細、レートリミット・タイムアウト・リトライのポリシー）、テストとデバッグの推奨。
+- 低: ドキュメント構成の改善（目次・セクション整理）、OpenAPI風の仕様テンプレート追加、将来的な拡張のためのガイドライン。
+
+総評
+現状は入門的な概要としては有用ですが、実運用の production 環境で使えるレベルには不足しています。特に「認証情報の渡し方の明確化」「非同期処理とエラーハンドリングの実装例」「セキュリティベストプラクティスの具体化」「API仕様の拡充」が急務です。上記修正案を取り入れることで、読者が迷わず実装でき、セキュリティリスクを低減できる信頼性の高い技術文書になります。

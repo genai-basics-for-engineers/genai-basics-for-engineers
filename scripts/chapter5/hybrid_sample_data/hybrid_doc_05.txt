@@ -1,0 +1,7 @@
+RAGシステムの最適化手法と実装戦略
+
+Retrieval-Augmented Generationの性能向上には、複数のアプローチを組み合わせることが効果的です。BM25とDense Retrievalを統合したハイブリッド検索により、キーワードマッチと意味的類似性の両方を活用できます。
+
+chunking戦略の最適化が重要で、文書の意味的境界を考慮したsemantic chunkingやoverlapping windowの調整により、情報の欠損を防げます。embedding modelの選択も性能に大きく影響し、ドメイン特化モデルやfine-tuningにより精度向上が期待できます。
+
+retrieval scoreの閾値設定や、re-rankingによる精度向上、negative samplingを活用したcontrastive learningなど、様々な最適化技術が研究されています。実際のプロダクションでは、レイテンシとコストのバランスを考慮した実装が求められます。

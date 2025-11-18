@@ -1,0 +1,7 @@
+---
+model: gpt-5-nano
+executions: 1
+has_system_prompt: no
+---
+
+{"original": 2000, "discounted": 1000}
