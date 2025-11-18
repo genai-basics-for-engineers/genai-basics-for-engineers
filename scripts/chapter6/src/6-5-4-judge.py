@@ -1,7 +1,7 @@
 from dotenv import load_dotenv; load_dotenv()
 from langfuse import Langfuse
 from langfuse.openai import openai
-import json, re
+import json, re, os
 
 PROMPT_NAME = "product-helpful-answer"
 PROMPT_TYPE = "text"
@@ -11,14 +11,13 @@ PASS_THRESHOLD = 0.7
 DATASET = "faq-ja-small"
 RUN_NAME = "llm-judge-v1"
 
-lf = Langfuse()
+lf = Langfuse(host=os.getenv("LANGFUSE_BASE_URL"))
 client = openai.OpenAI()
 
 try:
     lf.create_dataset(name=DATASET)
-    lf.create_dataset_item(dataset_name=DATASET, input={"query": "返品は可能ですか？"}, expected_output="返品ポリシー")
-    lf.create_dataset_item(dataset_name=DATASET, input={"query": "配送に何日かかりますか？"}, expected_output="通常は")
-    lf.create_dataset_item(dataset_name=DATASET, input={"query": "サポートの連絡先は？"}, expected_output="サポート")
+    lf.create_dataset_item(dataset_name=DATASET, input={"query": "返品は可能ですか？"}, expected_output="返品ポリシーによります")
+    lf.create_dataset_item(dataset_name=DATASET, input={"query": "配送に何日かかりますか？"}, expected_output="配送地域によって変わります")
 except Exception:
     pass
 

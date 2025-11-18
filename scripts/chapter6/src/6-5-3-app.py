@@ -3,11 +3,12 @@ from langfuse import Langfuse
 from langfuse.openai import openai
 import os
 
-lf = Langfuse()
+lf = Langfuse(host=os.getenv("LANGFUSE_BASE_URL"))
 client = openai.OpenAI()
 
 PROMPT_NAME = "product-helpful-answer"
 PROMPT_TYPE = "text"
+print("DEBUG LANGFUSE:", os.getenv("LANGFUSE_PUBLIC_KEY"), os.getenv("LANGFUSE_BASE_URL"))
 
 prompt = lf.get_prompt(PROMPT_NAME, type=PROMPT_TYPE)
 

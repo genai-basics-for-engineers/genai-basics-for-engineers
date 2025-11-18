@@ -1,5 +1,6 @@
 from dotenv import load_dotenv; load_dotenv()
 from langfuse import Langfuse
+import os
 
 NAME = "product-helpful-answer"
 TYPE = "text"
@@ -12,15 +13,15 @@ NEW_TEXT = (
     "Question: {{query}}"
 )
 
-lf = Langfuse()
+lf = Langfuse(host=os.getenv("LANGFUSE_BASE_URL"))
 
 prompt = lf.create_prompt(
     name=NAME,
     type=TYPE,
     prompt=NEW_TEXT,
     config={"model": MODEL},
-    labels=["stable"]  # 一発で stable ラベルを付与
+    labels=["production"]
 )
 
-print("✅ updated:", NAME, "to version", prompt.version, "with label stable")
+print("✅ updated:", NAME, "to version", prompt.version, "with label production")
 
