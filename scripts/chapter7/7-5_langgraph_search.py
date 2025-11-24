@@ -22,6 +22,7 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 MAX_STEPS = 5
 MIN_SEARCHES = 3
+MAX_RESULTS_PER_SEARCH = 3  # 1回の検索で扱うURL件数の上限（トークン肥大・sources暴走防止）
 
 SYSTEM_PROMPT = (
     "あなたはウェブ情報を調査して要約するアシスタントです。\n"
@@ -62,7 +63,8 @@ class AgentState(TypedDict):
     step_count: int
     search_count: int
     satisfied: bool
-    findings: Annotated[List[str], operator.add]
+    findings: List[str]
+
 
 def require_env(var_name: str) -> str:
     value = os.getenv(var_name)
@@ -82,6 +84,7 @@ def offline_search(query: str) -> dict:
         "results": OFFLINE_SEARCH_DATA["results"],
     }
 
+
 def create_search_tool():
     if os.getenv("TAVILY_API_KEY"):
         return TavilySearch(
@@ -92,6 +95,7 @@ def create_search_tool():
     print("[i] TAVILY_API_KEY が未設定のため、LangGraph エージェントはオフライン検索データを使用します。")
     return offline_search
 
+
 def agent_node(state: AgentState) -> AgentState:
     # LangGraphではstopパラメータを使わないため、gpt-4o-miniが使用可能
     llm = ChatOpenAI(model="gpt-4o-mini")
@@ -101,7 +105,8 @@ def agent_node(state: AgentState) -> AgentState:
 
     # トークン数削減：最新のHumanMessage以降を保持（会話の一貫性を保つ）
     all_messages = list(state["messages"])
-    system_msg = all_messages[0] if all_messages and isinstance(all_messages[0], SystemMessage) else None
+    system_msg = all_messages[0] if all_messages and isinstance(
+        all_messages[0], SystemMessage) else None
     other_messages = all_messages[1:] if system_msg else all_messages
 
     # 最新のHumanMessage以降を保持（ToolMessage→AIMessageペアを壊さない）
@@ -115,7 +120,8 @@ def agent_node(state: AgentState) -> AgentState:
 
     # 検索回数が足りない場合、リマインダーを追加
     if state["search_count"] < MIN_SEARCHES and state.get("satisfied", False):
-        reminder = HumanMessage(content=f"注意: 現在{state['search_count']}回しか検索していません。最低{MIN_SEARCHES}回の検索が必要です。異なる検索クエリで追加検索してください。")
+        reminder = HumanMessage(
+            content=f"注意: 現在{state['search_count']}回しか検索していません。最低{MIN_SEARCHES}回の検索が必要です。異なる検索クエリで追加検索してください。")
         messages_to_send.append(reminder)
 
     response = llm.invoke(messages_to_send)
@@ -130,6 +136,7 @@ def agent_node(state: AgentState) -> AgentState:
         print("[Agent] ツール不要と判断。タスク完了")
 
     return new_state
+
 
 def compose_node(state: AgentState) -> AgentState:
     last_message = state["messages"][-1]
@@ -154,12 +161,15 @@ def compose_node(state: AgentState) -> AgentState:
 
             if isinstance(content, dict) and "results" in content:
                 # 各結果のcontentを大幅に短縮してトークン数を削減
+                raw_results = content.get("results", [])[
+                    :MAX_RESULTS_PER_SEARCH]  # まず件数を剪定
                 summarized_results = []
-                for r in content["results"][:2]:  # 最大2件に制限
+                for r in raw_results:
                     summarized_results.append({
                         "url": r.get("url", ""),
                         "title": r.get("title", "")[:60],  # タイトルを60文字に短縮
-                        "content": r.get("content", "")[:100] + "..."  # 100文字に制限
+                        # 100文字に制限
+                        "content": r.get("content", "")[:100] + "..."
                     })
                 content["results"] = summarized_results
                 # answerも大幅に短縮
@@ -171,7 +181,8 @@ def compose_node(state: AgentState) -> AgentState:
                     content=json.dumps(content, ensure_ascii=False),
                     tool_call_id=last_message.tool_call_id
                 )
-                new_state["messages"] = [*state["messages"][:-1], short_message]
+                new_state["messages"] = [
+                    *state["messages"][:-1], short_message]
                 parsed_content = content
         except Exception as e:
             print(f"[Compose] 検索結果の短縮に失敗: {e}")
@@ -186,8 +197,12 @@ def compose_node(state: AgentState) -> AgentState:
                 except json.JSONDecodeError:
                     pass
             if isinstance(parsed_content, dict) and "results" in parsed_content:
+                # 取得件数を上限で剪定（Tavily の多件数返却による sources 暴走を防ぐ）
+                results_list = parsed_content.get(
+                    "results", [])[:MAX_RESULTS_PER_SEARCH]
+                parsed_content["results"] = results_list
                 added = 0
-                for r in parsed_content.get("results", []):
+                for r in results_list:
                     url = r.get("url") if isinstance(r, dict) else None
                     if url and url not in findings:
                         findings.append(url)
@@ -203,7 +218,8 @@ def compose_node(state: AgentState) -> AgentState:
         for msg in reversed(state["messages"]):
             if hasattr(msg, "tool_calls") and msg.tool_calls:
                 try:
-                    query = msg.tool_calls[0].get("args", {}).get("query") or msg.tool_calls[0]["args"]["query"]
+                    query = msg.tool_calls[0].get("args", {}).get(
+                        "query") or msg.tool_calls[0]["args"]["query"]
                     query_info = f" クエリ: {query}"
                 except:
                     pass
@@ -211,6 +227,7 @@ def compose_node(state: AgentState) -> AgentState:
         print(f"[Compose] 検索実行 ({new_state['search_count']}回目){query_info}")
 
     return new_state
+
 
 def should_continue(state: AgentState) -> Literal["tools", "compose", "agent", END]:
     # 1. ステップ数上限チェック
@@ -237,10 +254,12 @@ def should_continue(state: AgentState) -> Literal["tools", "compose", "agent", E
 
     # 5. 最低検索回数未達だが Agent が満足している場合
     if state["search_count"] < MIN_SEARCHES and state["satisfied"]:  # ⑤
-        print(f"[Control] 検索{state['search_count']}/{MIN_SEARCHES}回、最低回数未達 → 追加検索を要求")
+        print(
+            f"[Control] 検索{state['search_count']}/{MIN_SEARCHES}回、最低回数未達 → 追加検索を要求")
         return "agent"
 
     return END
+
 
 def build_graph() -> StateGraph:
     load_dotenv()
@@ -270,6 +289,7 @@ def build_graph() -> StateGraph:
     graph.add_edge("compose", "agent")  # ④ 結果処理 → 次の思考
 
     return graph.compile()
+
 
 def run(query: str) -> None:
     app = build_graph()
@@ -304,11 +324,15 @@ def run(query: str) -> None:
 
     print(f"\n収集した情報数: {info_count}")
     print(f"実行ステップ数: {step_count}")
-    print(f"\n[Summary] steps={step_count} tool_calls={tool_calls} sources={sources} satisfied={satisfied}")
+    print(
+        f"\n[Summary] steps={step_count} tool_calls={tool_calls} sources={sources} satisfied={satisfied}")
+
 
 def main() -> None:
-    user_query = sys.argv[1] if len(sys.argv) > 1 else "2025年の生成 AI 業界の主要な動向を3つ教えてください"
+    user_query = sys.argv[1] if len(
+        sys.argv) > 1 else "2025年の生成 AI 業界の主要な動向を3つ教えてください"
     run(user_query)
+
 
 if __name__ == "__main__":
     main()

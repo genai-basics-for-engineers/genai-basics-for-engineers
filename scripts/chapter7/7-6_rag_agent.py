@@ -42,6 +42,7 @@ MAX_STEPS = 15
 GRAPH_RECURSION_LIMIT = 80
 FETCH_TIMEOUT = 8
 MAX_DOC_LENGTH = 3200
+CONFIDENCE_SKIP_EXTERNAL = 0.85  # 社内データの類似度が十分高い場合は外部検索を抑制
 
 warnings.filterwarnings("ignore", category=UserWarning, module="pydantic._migration")
 
@@ -433,6 +434,45 @@ def agent_node(state: RAGAgentState) -> RAGAgentState:
     # LLMに次のアクションを決めてもらう
     response = llm.invoke(messages_to_send)
 
+    # 1ステップ内のツール呼び出し整理
+    if isinstance(response, AIMessage) and getattr(response, "tool_calls", None):
+        seen = set()
+        unique_calls = []
+        web_calls = 0
+        fetch_calls = 0
+        skipped = 0
+        for call in response.tool_calls:
+            name = call.get("name")
+            args_json = json.dumps(call.get("args", {}), ensure_ascii=False, sort_keys=True)
+            key = (name, args_json)
+            # 完全重複は除外
+            if key in seen:
+                skipped += 1
+                continue
+            # 高信頼度なら外部検索系を抑制
+            if state["confidence"] >= CONFIDENCE_SKIP_EXTERNAL and name in {"web_search", "github_search_issues", "fetch_page"}:
+                skipped += 1
+                continue
+            # web_search は1ステップ1回まで
+            if name == "web_search":
+                if web_calls >= 1:
+                    skipped += 1
+                    continue
+                web_calls += 1
+            # fetch_page は1ステップ2回まで
+            if name == "fetch_page":
+                if fetch_calls >= 2:
+                    skipped += 1
+                    continue
+                fetch_calls += 1
+            seen.add(key)
+            unique_calls.append(call)
+        if skipped > 0:
+            print(f"[Agent] 不要ツール呼び出しを {skipped} 件スキップ")
+        if len(unique_calls) < len(response.tool_calls):
+            print(f"[Agent] 重複ツール呼び出しを {len(response.tool_calls) - len(unique_calls)} 件削除")
+        response.tool_calls = unique_calls
+
     # 新しい状態を作成
     new_state = dict(state)
     new_state["messages"] = [*state["messages"], response]
@@ -503,14 +543,19 @@ def process_search_results(state: RAGAgentState) -> RAGAgentState:
         except json.JSONDecodeError:
             results = []
         findings: list[Dict[str, str]] = []
+        seen_urls: set[str] = set()
         for item in results:
             snippet = item.get("snippet", "")
             url = item.get("url", "")
             # tavily:answer は擬似URLのため本文取得対象から除外
             if url == "tavily:answer":
                 continue
+            if url and url in seen_urls:
+                continue
             if snippet or url:
                 findings.append({"snippet": snippet, "url": url})
+                if url:
+                    seen_urls.add(url)
         new_state["web_findings"] = findings
         print(f"[Process] Web 補足情報 {len(findings)} 件")
         # ToolMessageを短縮
