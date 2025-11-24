@@ -9,15 +9,61 @@ import sys
 import textwrap
 from pathlib import Path
 from typing import Iterable, Optional
+import re
 
 from dotenv import load_dotenv
 from langchain.agents import create_agent
+from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.messages import AIMessage, ToolMessage
 from langchain_core.runnables import Runnable
 from langchain_core.tools import BaseTool, tool
 from langchain_openai import ChatOpenAI
 from langchain_tavily import TavilySearch
 from langgraph.errors import GraphRecursionError
+
+
+class ConsoleCallbackHandler(BaseCallbackHandler):
+    """Thought/Action/Observation の進捗を標準出力に流すシンプルなハンドラ."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._depth = 0  # ネストした chain 呼び出しの重複出力を防ぐ
+
+    @staticmethod
+    def _trim(text: object, limit: int = 500) -> str:
+        s = str(text).rstrip()
+        return s if len(s) <= limit else s[:limit] + "... [truncated]"
+
+    def on_chain_start(self, serialized, inputs, **kwargs):
+        self._depth += 1
+        if self._depth == 1:
+            print("> Entering new ReAct chain...")
+
+    def on_llm_end(self, response, **kwargs):
+        # ReAct では LLM 出力の先頭に Thought が含まれるので、全文を短めに表示
+        try:
+            generations = response.generations
+        except Exception:
+            return
+        for gen in generations:
+            for msg in gen:
+                content = getattr(msg, "text", "") or getattr(msg, "message", None)
+                if content:
+                    text = getattr(content, "content", content)
+                    print(self._trim(text, 400))
+
+    def on_tool_start(self, serialized, input_str, **kwargs):
+        name = serialized.get("name") if isinstance(serialized, dict) else serialized
+        print(f"Action: {name}")
+        print(f"Action Input: {self._trim(input_str, 400)}")
+
+    def on_tool_end(self, output, **kwargs):
+        print(f"Observation: {self._trim(output, 500)}")
+
+    def on_chain_end(self, outputs, **kwargs):
+        if self._depth == 1:
+            print("> Finished chain.")
+        self._depth = max(0, self._depth - 1)
 
 ROOT = Path(__file__).resolve().parent
 OUTPUT_DIR = ROOT / "outputs"
@@ -240,6 +286,8 @@ def main(
     agent = build_agent(model=model)
     question = query or "2025年の生成 AI 業界の主要な動向を3つ教えてください"
 
+    callbacks = [ConsoleCallbackHandler()]
+
     print("=== ReAct Agent による検索・要約 ===\n")
     print(f"質問: {question}\n")
     print("=" * 60)
@@ -247,7 +295,10 @@ def main(
     try:
         result = agent.invoke(
             {"messages": [{"role": "user", "content": question}]},
-            config={"recursion_limit": recursion_limit},
+            config={
+                "recursion_limit": recursion_limit,
+                "callbacks": callbacks,
+            },
         )
     except GraphRecursionError as exc:
         print("\n" + "=" * 60)
@@ -266,8 +317,21 @@ def main(
     if not final_answer:
         output_text = result.get("output", "")
         final_answer = _content_to_text(output_text).strip() if output_text else ""
-    if final_answer and not final_answer.startswith("Final Answer:"):
-        final_answer = f"Final Answer: {final_answer}"
+
+    def normalize_final_answer(text: str) -> str:
+        """Final Answer を1回だけ先頭に付ける。内容は極力そのまま残す。"""
+        if not text:
+            return text
+        # 複数回の "Final Answer" がある場合は最後のもの以降を採用
+        match = list(re.finditer(r"(?i)final answer[:\\s-]*", text))
+        if match:
+            text = text[match[-1].end():]
+        text = text.strip()
+        if text.startswith(":"):
+            text = text[1:].lstrip()
+        return f"Final Answer: {text}"
+
+    final_answer = normalize_final_answer(final_answer)
 
     print("\n" + "=" * 60)
     print("最終回答:\n")
