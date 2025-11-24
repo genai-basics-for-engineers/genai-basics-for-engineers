@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
@@ -11,8 +12,9 @@ OUTPUT_DIR = ROOT / "outputs"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 SCRIPTS = [
-    "7-3_react_search.py",
-    "7-4_langgraph_search.py",
+    # リポジトリに存在するスクリプト名を正とする
+    "7-4_react_search.py",
+    "7-5_langgraph_search.py",
     "7-5_research_agent.py",
     "7-6_rag_agent.py",
 ]
@@ -21,10 +23,13 @@ SCRIPTS = [
 def run(script: str) -> None:
     print(f"\n=== Running {script} ===\n")
     script_path = ROOT / script
+    if not script_path.exists():
+        raise SystemExit(f"{script} が見つかりません: {script_path}")
+
     out_path = OUTPUT_DIR / f"{script.replace('.py', '')}-out.txt"
     with out_path.open("w", encoding="utf-8") as f:
         proc = subprocess.Popen(
-            ["python", str(script_path)],
+            [sys.executable, "-u", str(script_path)],
             cwd=ROOT,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
