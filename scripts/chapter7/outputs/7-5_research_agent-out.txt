@@ -1,0 +1,60 @@
+=== 調査 Agent：根拠収集と出典提示 ===
+
+調査テーマ: 2024年の日本における生成 AI 規制の動向
+============================================================
+
+[Agent] Step 1/8
+[Agent] 現在の出典数: 0
+[Control] ツールノードへ
+[Tool:Search] クエリ: 日本 2024 生成AI 規制 動向
+[Tool:Search] クエリ: 生成AI 日本 規制 2024 政府
+[Tool:Search] クエリ: AI 規制 日本 2024 著作権 ガイドライン
+[Tool:Search] クエリ: デジタル庁 生成AI 規制 2024
+[Tool:Search] クエリ: 日本 生成系AI 規約 2024
+[Tool:Search] 5 件の結果
+[Tool:Search] 5 件の結果
+[Tool:Search] 6 件の結果
+[Tool:Search] 6 件の結果
+[Tool:Search] 6 件の結果
+[Process] 新規出典: tavily:answer
+[Process] 新規出典: https://stli.iii.org.tw/article-detail.aspx?no=64&tp=1&d=9146
+[Process] 新規出典: https://www.jdla.org/document/
+[Process] 新規出典: https://www.meti.go.jp/policy/mono_info_service/connected_industries/sharing_and_utilization/20250218003-ar.pdf
+[Process] 新規出典: https://www.tmi.gr.jp/eyes/blog/2024/15409.html
+[Process] 新規出典: https://intlfocus.ncc.gov.tw/xcdoc/cont?xsmsid=0J210565885111070723&sid=0O201371586227853538&sq=
+
+[Agent] Step 2/8
+[Agent] 現在の出典数: 6
+[Agent] 十分な出典を確保。最終回答を生成
+[Control] 調査完了
+
+============================================================
+調査結果:
+
+以下は、2024年の日本における生成AI規制の動向を3点に絞った要点と、それぞれの出典です。
+
+- ポイント1: 政府が生成AIのガバナンス枠組みを強化する動きが進展
+  - 2024年1月、経済産業省と総務省が共同で「AI業者指引草案」を公表・検討を進め、生成AIの倫理・法令順守を促す枠組みづくりが加速しました。
+  - 出典: https://stli.iii.org.tw/article-detail.aspx?no=64&tp=1&d=9146
+
+- ポイント2: 具体的な活用ルールを示す実務ガイドラインの公表
+  - 生成AIの利用を組織内で適切に運用するための「生成AIの利用ガイドライン（画像編）」を、日本ディープラーニング協会（JDLA）が2024年2月に公開・解説付きで提供しました。
+  - 出典: https://www.jdla.org/document/
+
+- ポイント3: 知的財産権・著作権をめぐる法的議論が活発化
+  - 生成AIと著作権の関係性、学習データの取り扱い、生成物の権利帰属などを巡る日本政府の見解整理・議論が進みました。これに関する政府・機関の動向をまとめた情報源です。
+  - 出典: https://intlfocus.ncc.gov.tw/xcdoc/cont?xsmsid=0J210565885111070723&sid=0O201371586227853538&sq=
+
+収集した出典数: 12
+  [1] tavily:answer
+  [2] https://stli.iii.org.tw/article-detail.aspx?no=64&tp=1&d=9146
+  [3] https://www.jdla.org/document/
+  [4] https://www.meti.go.jp/policy/mono_info_service/connected_industries/sharing_and_utilization/20250218003-ar.pdf
+  [5] https://www.tmi.gr.jp/eyes/blog/2024/15409.html
+  [6] https://intlfocus.ncc.gov.tw/xcdoc/cont?xsmsid=0J210565885111070723&sid=0O201371586227853538&sq=
+  [7] tavily:answer
+  [8] https://stli.iii.org.tw/article-detail.aspx?no=64&tp=1&d=9146
+  [9] https://www.jdla.org/document/
+  [10] https://www.meti.go.jp/policy/mono_info_service/connected_industries/sharing_and_utilization/20250218003-ar.pdf
+  [11] https://www.tmi.gr.jp/eyes/blog/2024/15409.html
+  [12] https://intlfocus.ncc.gov.tw/xcdoc/cont?xsmsid=0J210565885111070723&sid=0O201371586227853538&sq=

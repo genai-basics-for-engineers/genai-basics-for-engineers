@@ -1,0 +1,41 @@
+=== LangGraph による検索・要約 Agent ===
+
+質問: 2025年の生成 AI 業界の主要な動向を3つ教えてください
+============================================================
+
+[Agent] Step 1/5
+[Control] LLM がツール呼び出しを要求 → tools ノードへ遷移
+[Compose] 新しい情報を追加 (計 3 件)
+[Compose] 検索実行 (1回目) クエリ: 2025 生成 AI 業界 トレンド
+
+[Agent] Step 2/5
+[Agent] ツール不要と判断。タスク完了
+[Control] 検索1/3回、最低回数未達 → 追加検索を要求
+
+[Agent] Step 3/5
+[Control] LLM がツール呼び出しを要求 → tools ノードへ遷移
+[Compose] 新しい情報を追加 (計 6 件)
+[Compose] 検索実行 (2回目) クエリ: 2025 generative AI market trends
+
+[Agent] Step 4/5
+[Control] LLM がツール呼び出しを要求 → tools ノードへ遷移
+[Compose] 検索結果の短縮に失敗: 'NoneType' object is not subscriptable
+[Compose] 新しい情報を追加 (計 8 件)
+[Compose] 検索実行 (3回目) クエリ: 2025 AI technology trends
+
+[Agent] Step 5/5
+[Agent] ツール不要と判断。タスク完了
+[Control] ステップ数上限（5）に到達 → 終了
+
+============================================================
+最終回答:
+
+Final Answer:
+- 2025年には、生成AI市場が約66.62ビリオンドルに達し、企業活動においてAIエージェントの導入が急増することが予想されています。これにより、業務効率の向上が見込まれています。（出典: [mend.io](https://www.mend.io/blog/generative-ai-statistics-to-know-in-2025/)）
+- 技術の進歩により、エージェントAIが重要な役割を果たすようになり、企業は自動化されたプロセスを活用して新しい価値創造を行うことが期待されています。生成AIは、さまざまな業界において革新と効率の向上を促進することが予測されます。（出典: [synoptek.com](https://synoptek.com/insights/thought-leadership/data-insights/genai-trends-key-developments-to-watch-out-for/)）
+- AI技術は、業務の自動化や効率化を進め、2025年までに生成AIが総生産性に与える影響が拡大すると考えられています。このため、企業は早期に生成AIを採用し、その利点を享受し始めています。（出典: [wharton.upenn.edu](https://budgetmodel.wharton.upenn.edu/issues/2025/9/8/projected-impact-of-generative-ai-on-future-productivity-growth)）
+
+収集した情報数: 8
+実行ステップ数: 5
+
+[Summary] steps=5 tool_calls=3 sources=8 satisfied=True
